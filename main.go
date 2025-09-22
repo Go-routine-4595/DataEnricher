@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/Go-routine-4595/DataEnricher/adapters/controller"
+	"github.com/Go-routine-4595/DataEnricher/adapters/gateways"
 	"github.com/Go-routine-4595/DataEnricher/internal/config"
+	"github.com/Go-routine-4595/DataEnricher/internal/dynatrace"
 	"github.com/Go-routine-4595/DataEnricher/service"
 	"github.com/Go-routine-4595/DataEnricher/usecase"
 
@@ -27,14 +29,43 @@ func main() {
 	// Setup logger
 	logger := setupLogger(cfg.LogLevel, cfg.LogFilePath)
 
+	// print config parameters
+	printConfig(*cfg, &logger)
+
+	// Setup Redis client
+	redis, err := gateways.NewRepository(cfg.RedisConnectionString, &logger)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to connect to Redis")
+	}
+	if redis.IsConnected() == false {
+		logger.Fatal().Msg("Failed to connect to Redis")
+	}
+	logger.Info().Msg("Connected to Redis")
+	defer redis.Close()
+
+	// Setup Dynatrace client
+	var dynatraceClient *dynatrace.DynatraceClient
+	if cfg.DynatraceEnabled {
+		dynatraceClient = dynatrace.NewDynatraceClient(&logger)
+		logger.Info().Msg("Dynatrace metrics enabled")
+	} else {
+		dynatraceClient = dynatrace.NewDynatraceClient(&logger)
+		dynatraceClient.Disable()
+		logger.Info().Msg("Dynatrace metrics disabled")
+	}
+
+	// Setup publisher client
+	pub := gateways.NewPublish(cfg, &logger)
+	defer pub.Close()
+
 	// Setup service and use case
-	srv := service.NewService()
-	useCase := usecase.NewUseCase(nil, srv, cfg.PublishTopicBase, &logger, ctx)
+	srv := service.NewService(redis, &logger)
+	useCase := usecase.NewUseCase(pub, srv, dynatraceClient, cfg.PublishTopicBase, &logger, ctx)
 
 	// Setup MQTT controller
 	ctl := controller.NewMqttController(cfg, useCase, &logger)
 
-	err := ctl.Start(ctx)
+	err = ctl.Start(ctx)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to start controller")
 	}
@@ -88,4 +119,18 @@ func setupLogger(level string, logDir string) zerolog.Logger {
 
 	// Set global logger
 	return zerolog.New(multi).With().Timestamp().Logger()
+}
+
+func printConfig(cfg config.Config, logger *zerolog.Logger) {
+	logger.Info().Msg("Configuration:")
+	logger.Info().Str("LOG_LEVEL", cfg.LogLevel).Msg("Log level")
+	logger.Info().Str("HOST", cfg.Host).Msg("MQTT host")
+	logger.Info().Int("PORT", cfg.Port).Msg("MQTT port")
+	logger.Info().Str("REDIS_CONNECTION_STRING", cfg.RedisConnectionString).Msg("Redis connection string")
+	logger.Info().Str("PUBLISH_TOPIC_BASE", cfg.PublishTopicBase).Msg("Publish topic base")
+	logger.Info().Str("USER", cfg.User).Msg("MQTT user")
+	logger.Info().Str("PASSWORD", cfg.Password).Msg("MQTT password")
+	logger.Info().Str("LOG_FILE_PATH", cfg.LogFilePath).Msg("Log file path")
+	logger.Info().Str("SUBSCRIPTION_TOPIC", cfg.SubscriptionTopic).Msg("Subscription topic")
+	logger.Info().Bool("DYNATRACE_ENABLED", cfg.DynatraceEnabled).Msg("Dynatrace enabled")
 }

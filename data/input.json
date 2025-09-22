@@ -1,0 +1,56 @@
+{
+  "source_topic": "fmi/morenci/2537626",
+  "device_id": "2537626",
+  "payload": {
+    "unit": [
+      "meter",
+      "count"
+    ],
+    "serialId": "2537626",
+    "observations": [
+      {
+        "value": [
+          127.134,
+          -64
+        ],
+        "time": "2025-09-19T17:31:20Z"
+      },
+      {
+        "value": [
+          146.16,
+          -57
+        ],
+        "time": "2025-09-19T17:31:20Z"
+      },
+      {
+        "value": [
+          165.31199999999998,
+          -64
+        ],
+        "time": "2025-09-19T17:31:20Z"
+      },
+      {
+        "value": [
+          184.338,
+          -63
+        ],
+        "time": "2025-09-19T17:31:20Z"
+      },
+      {
+        "value": [
+          203.49,
+          -66
+        ],
+        "time": "2025-09-19T17:31:20Z"
+      }
+    ],
+    "metric": [
+      "distance",
+      "amplitude"
+    ],
+    "filters": {
+      "loggerChannel": 1
+    },
+    "eventUuid": "7d3262e991059092d775b4dc"
+  }
+}

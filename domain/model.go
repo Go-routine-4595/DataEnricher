@@ -8,7 +8,7 @@ import (
 type Message struct {
 	SourceTopic string          `json:"source_topic"`
 	DeviceID    string          `json:"device_id"`
-	Data        json.RawMessage `json:"data"`
+	Data        json.RawMessage `json:"payload"`
 }
 
 type EnrichedMessage struct {
@@ -22,22 +22,32 @@ type EnrichedMessage struct {
 
 func (e *EnrichedMessage) UnmarshalJSON(data []byte) error {
 	var (
-		m   EnrichedMessage
+		msg Message
 		err error
 	)
-	err = json.Unmarshal(data, &m)
+	err = json.Unmarshal(data, &msg)
 	if err != nil {
 		return err
 	}
-	err = m.getSiteCode()
+
+	e.SourceTopic = msg.SourceTopic
+	e.DeviceID = msg.DeviceID
+	e.Data = msg.Data
+
+	return nil
+}
+
+func (e *EnrichedMessage) Enrich(registry []byte) error {
+	e.RegistryRaw = registry
+
+	err := e.getSiteCode()
 	if err != nil {
 		return err
 	}
-	err = m.getDataModel()
+	err = e.getDataModel()
 	if err != nil {
 		return err
 	}
-	*e = m
 	return nil
 }
 
@@ -80,4 +90,8 @@ func (e *EnrichedMessage) getDataModel() error {
 func (e *EnrichedMessage) Byte() ([]byte, error) {
 	b, err := json.Marshal(e)
 	return b, err
+}
+
+func (e *EnrichedMessage) IsGeoKonAPIDataModel() bool {
+	return e.DataModel == "geokonapi"
 }

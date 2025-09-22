@@ -8,6 +8,7 @@ import (
 	"github.com/Go-routine-4595/DataEnricher/usecase"
 
 	mqtt "github.com/Go-routine-4595/DataEnricher/internal/mqtt"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
@@ -46,7 +47,7 @@ func NewMqttController(config *config.Config, useCase usecase.IGeoKonAPIMessage,
 		Username:       user,
 		Password:       passw,
 		SubscribeTopic: sub,
-		ClientID:       "DataEnricher",
+		ClientID:       "DataEnricher-controller-" + uuid.New().String(),
 	}
 	controller := mqtt.NewMQTTConnector(cfg, logger).WithLogger(logger).WithSubscription(useCase)
 

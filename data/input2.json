@@ -1,0 +1,57 @@
+{
+  "source_topic": "fmi/safford/2530738",
+  "device_id" :"2530738",
+  "payload": {
+    "eventUuid": "0aced71a659c2225f5bb187b",
+    "serialId": "2530738",
+    "filters": {
+      "loggerChannel": 1
+    },
+    "metric": [
+      "distance",
+      "amplitude"
+    ],
+    "unit": [
+      "meter",
+      "count"
+    ],
+    "observations": [
+      {
+        "time": "2025-08-31T12:00:00Z",
+        "value": [
+          462.788,
+          2
+        ]
+      },
+      {
+        "time": "2025-08-31T12:00:00Z",
+        "value": [
+          468.122,
+          3
+        ]
+      },
+      {
+        "time": "2025-08-31T12:00:00Z",
+        "value": [
+          473.329,
+          3
+        ]
+      },
+      {
+        "time": "2025-08-31T12:00:00Z",
+        "value": [
+          478.536,
+          3
+        ]
+      },
+      {
+        "time": "2025-08-31T12:00:00Z",
+        "value": [
+          483.743,
+          0
+        ]
+      }
+    ]
+  }
+}
+

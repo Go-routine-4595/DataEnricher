@@ -4,10 +4,16 @@ import (
 	"context"
 	"errors"
 	"os"
+	"time"
 
 	"github.com/Go-routine-4595/DataEnricher/service"
 	"github.com/rs/zerolog"
 )
+
+type IDynatraceClient interface {
+	RecordMessageProcessed(topic string, processingTimeMs float64, success bool)
+	RecordError(errorType, topic string)
+}
 
 type IGeoKonAPIMessage interface {
 	GeoKonAPIMessage(message []byte) error
@@ -21,9 +27,10 @@ type UseCase struct {
 	logger           *zerolog.Logger
 	channel          chan []byte
 	publishBaseTopic string
+	dynatrace        IDynatraceClient
 }
 
-func NewUseCase(pub IPublishMessage, srv service.IProcessMessage, publishTopic string, l *zerolog.Logger, ctx context.Context) *UseCase {
+func NewUseCase(pub IPublishMessage, srv service.IProcessMessage, dynatrace IDynatraceClient, publishTopic string, l *zerolog.Logger, ctx context.Context) *UseCase {
 	var (
 		logger zerolog.Logger
 	)
@@ -40,6 +47,7 @@ func NewUseCase(pub IPublishMessage, srv service.IProcessMessage, publishTopic s
 		logger:           &logger,
 		channel:          make(chan []byte, 100),
 		publishBaseTopic: publishTopic,
+		dynatrace:        dynatrace,
 	}
 
 	go useCase.start(ctx)
@@ -67,22 +75,57 @@ func (u *UseCase) start(ctx context.Context) {
 			u.logger.Info().Msg("UseCase Context done, exiting")
 			return
 		case msg := <-u.channel:
-			enrichedMsg, err := u.srv.ProcessMessage(msg)
-			if err != nil {
-				u.logger.Error().Msgf("Error processing message: %v", err)
-				u.logger.Debug().Msgf("Message: %s", string(msg))
-			}
-			b, err := enrichedMsg.Byte()
-			if err != nil {
-				u.logger.Error().Msgf("Error converting message to byte: %v", err)
-				u.logger.Debug().Msgf("Message: %s", string(msg))
-			}
-			if u.publishMessage != nil {
-				u.publishMessage.PublishMessage(b, u.publishBaseTopic)
-			} else {
-				u.mockPublishMessage(b, u.publishBaseTopic)
-			}
+			u.processMessage(msg)
 		}
+	}
+}
+
+func (u *UseCase) processMessage(msg []byte) {
+	var (
+		topic   string
+		success bool
+	)
+
+	defer func(now time.Time) {
+		elapsed := time.Since(now).Seconds()
+		u.logger.Info().Msgf("ProcessMessage took %f second", elapsed)
+		if success {
+			//u.dynatrace.RecordMessageProcessed(u.topic, elapsed, true)
+		} else {
+			//u.dynatrace.RecordMessageProcessed(u.topic, elapsed, false)
+			//s.dynatrace.RecordError("invalid_format", topic)
+			// or
+			// s.dynatrace.RecordError("enrichment_error", topic)
+			// or
+			//s.dynatrace.RecordError("repository_error", topic)
+		}
+
+	}(time.Now())
+
+	enrichedMsg, err := u.srv.ProcessMessage(msg)
+	if err != nil {
+		var geoKonErr *service.ErrNotGeoKonAPIData
+		if errors.As(err, &geoKonErr) {
+			u.logger.Warn().Msgf("Invalid GeoKonAPI data: %v", err)
+			u.logger.Debug().Msgf("Message: %s", string(msg))
+			return
+		}
+		u.logger.Error().Msgf("Error processing message: %v", err)
+		u.logger.Debug().Msgf("Message: %s", string(msg))
+		return
+	}
+	b, err := enrichedMsg.Byte()
+	if err != nil {
+		u.logger.Error().Msgf("Error converting message to byte: %v", err)
+		u.logger.Debug().Msgf("Message: %s", string(msg))
+		return
+	}
+	topic = u.publishBaseTopic + "/" + enrichedMsg.SiteCode + "/" + enrichedMsg.DeviceID
+	success = true
+	if u.publishMessage != nil {
+		u.publishMessage.PublishMessage(b, topic)
+	} else {
+		u.mockPublishMessage(b, topic)
 	}
 }
 
